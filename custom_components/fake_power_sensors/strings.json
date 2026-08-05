@@ -1,0 +1,80 @@
+{
+  "title": "Fake Power Sensors",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Fake consumption meter",
+        "description": "Choose where the fake sensors should live.",
+        "menu_options": {
+          "existing_device": "Add to an existing device",
+          "new_device": "Create a new device"
+        }
+      },
+      "existing_device": {
+        "title": "Existing device",
+        "description": "The sensors will be attached to the selected device.",
+        "data": {
+          "device_id": "Device",
+          "name": "Sensor prefix (optional)",
+          "power": "Power",
+          "standby_power": "Standby power",
+          "source_entity": "Control entity (optional)"
+        },
+        "data_description": {
+          "name": "Only needed when creating several fake meters on the same device.",
+          "standby_power": "Power applied while the control entity is off.",
+          "source_entity": "When set, the power is only applied while this entity is on.",
+          "power": "Applied continuously when no control entity is set."
+        }
+      },
+      "new_device": {
+        "title": "New fake device",
+        "description": "A device will be created in Home Assistant holding both sensors.",
+        "data": {
+          "name": "Device name",
+          "power": "Power",
+          "standby_power": "Standby power",
+          "source_entity": "Control entity (optional)"
+        },
+        "data_description": {
+          "standby_power": "Power applied while the control entity is off.",
+          "source_entity": "When set, the power is only applied while this entity is on.",
+          "power": "Applied continuously when no control entity is set."
+        }
+      }
+    },
+    "error": {
+      "device_not_found": "This device could not be found in the registry."
+    },
+    "abort": {
+      "already_configured": "This fake meter is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Fake meter options",
+        "data": {
+          "power": "Power",
+          "standby_power": "Standby power",
+          "source_entity": "Control entity (optional)"
+        },
+        "data_description": {
+          "power": "Can be changed at any time; the new value is applied immediately.",
+          "standby_power": "Power applied while the control entity is off.",
+          "source_entity": "When set, the power is only applied while this entity is on."
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "power": {
+        "name": "{prefix}Current consumption"
+      },
+      "energy": {
+        "name": "{prefix}Today's consumption"
+      }
+    }
+  }
+}

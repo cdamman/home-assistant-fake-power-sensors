@@ -1,0 +1,80 @@
+{
+  "title": "Fake Power Sensors",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Compteur de consommation fictif",
+        "description": "Choisissez où placer les capteurs fictifs.",
+        "menu_options": {
+          "existing_device": "Ajouter à un appareil existant",
+          "new_device": "Créer un nouvel appareil"
+        }
+      },
+      "existing_device": {
+        "title": "Appareil existant",
+        "description": "Les capteurs seront rattachés à l'appareil sélectionné.",
+        "data": {
+          "device_id": "Appareil",
+          "name": "Préfixe des capteurs (optionnel)",
+          "power": "Puissance",
+          "standby_power": "Puissance de veille",
+          "source_entity": "Entité de contrôle (optionnel)"
+        },
+        "data_description": {
+          "name": "À renseigner uniquement pour créer plusieurs compteurs fictifs sur le même appareil.",
+          "standby_power": "Puissance appliquée lorsque l'entité de contrôle est éteinte.",
+          "source_entity": "Si renseignée, la puissance n'est appliquée que lorsque cette entité est allumée.",
+          "power": "Puissance appliquée en permanence si aucune entité de contrôle n'est renseignée."
+        }
+      },
+      "new_device": {
+        "title": "Nouvel appareil fictif",
+        "description": "Un appareil sera créé dans Home Assistant avec les deux capteurs.",
+        "data": {
+          "name": "Nom de l'appareil",
+          "power": "Puissance",
+          "standby_power": "Puissance de veille",
+          "source_entity": "Entité de contrôle (optionnel)"
+        },
+        "data_description": {
+          "standby_power": "Puissance appliquée lorsque l'entité de contrôle est éteinte.",
+          "source_entity": "Si renseignée, la puissance n'est appliquée que lorsque cette entité est allumée.",
+          "power": "Puissance appliquée en permanence si aucune entité de contrôle n'est renseignée."
+        }
+      }
+    },
+    "error": {
+      "device_not_found": "Cet appareil est introuvable dans le registre."
+    },
+    "abort": {
+      "already_configured": "Ce compteur fictif est déjà configuré."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Options du compteur fictif",
+        "data": {
+          "power": "Puissance",
+          "standby_power": "Puissance de veille",
+          "source_entity": "Entité de contrôle (optionnel)"
+        },
+        "data_description": {
+          "power": "Modifiable à tout moment ; la nouvelle valeur est appliquée immédiatement.",
+          "standby_power": "Puissance appliquée lorsque l'entité de contrôle est éteinte.",
+          "source_entity": "Si renseignée, la puissance n'est appliquée que lorsque cette entité est allumée."
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "power": {
+        "name": "{prefix}Consommation actuelle"
+      },
+      "energy": {
+        "name": "{prefix}Consommation d'aujourd'hui"
+      }
+    }
+  }
+}
