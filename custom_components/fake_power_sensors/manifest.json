@@ -1,0 +1,12 @@
+{
+  "domain": "fake_power_sensors",
+  "name": "Fake Power Sensors",
+  "codeowners": ["@cdamman"],
+  "config_flow": true,
+  "documentation": "https://github.com/cdamman/home-assistant-fake-power-sensors",
+  "integration_type": "helper",
+  "iot_class": "calculated",
+  "issue_tracker": "https://github.com/cdamman/home-assistant-fake-power-sensors/issues",
+  "requirements": [],
+  "version": "1.0.0"
+}
