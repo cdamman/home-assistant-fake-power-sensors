@@ -23,3 +23,28 @@ jobs:
       - uses: hacs/action@main
         with:
           category: integration
+
+  tests:
+    name: pytest (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    strategy:
+      # Both ends of the supported range are worth knowing about, so let the
+      # other one finish even once the first has failed.
+      fail-fast: false
+      matrix:
+        include:
+          - name: Home Assistant 2025.8
+            python: "3.13"
+            requirements: requirements-test-min.txt
+          - name: Home Assistant latest
+            python: "3.14"
+            requirements: requirements-test.txt
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: ${{ matrix.requirements }}
+      - run: pip install -r ${{ matrix.requirements }}
+      - run: pytest -q
