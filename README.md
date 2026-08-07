@@ -26,6 +26,10 @@ instance shows `Consommation actuelle` and `Consommation d'aujourd'hui`.
 
 ## Installation
 
+Home Assistant 2025.8 or newer is required: attaching the sensors to an
+existing device relies on `Entity.device_entry`, which earlier releases
+ignore.
+
 ### Through HACS
 
 1. HACS → ⋮ menu → **Custom repositories**
@@ -53,6 +57,13 @@ pick one of the two modes.
 
 Without a control entity the power is applied permanently, which is the
 intended behaviour for an appliance that is always powered.
+
+In *existing device* mode the sensors are attached to the target device
+without this integration taking ownership of it. The flow therefore ends
+straight away instead of stopping on the **Name and assign** screen, which
+would otherwise offer to rename and reassign a device belonging to another
+integration. In *new device* mode the device really is ours, so that screen
+still appears and does what it says.
 
 The power stays editable at any time through the **Configure** button on the
 entry. The new value takes effect immediately, with no reload of the

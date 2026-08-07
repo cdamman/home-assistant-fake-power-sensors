@@ -32,43 +32,47 @@ PLATFORMS: list[Platform] = [Platform.SENSOR]
 
 
 @callback
-def async_build_device_info(
+def async_resolve_device(
     hass: HomeAssistant, entry: ConfigEntry
-) -> DeviceInfo | None:
-    """Build the device info for the entities of an entry.
+) -> tuple[DeviceInfo | None, dr.DeviceEntry | None]:
+    """Resolve how the entities of an entry attach to a device.
 
-    In "new device" mode a dedicated device is declared. In "existing
-    device" mode the identifiers of the target device are reused: the
-    registry recognises them and attaches our entities to that device.
+    In "new device" mode a dedicated device is declared through a device
+    info, which this entry owns.
+
+    In "existing device" mode the target device is returned as a registry
+    entry instead, to be set on the entity as its `device_entry`. Handing a
+    device info carrying somebody else's identifiers would implicitly add
+    this entry to that device, which has two consequences we do not want:
+    Home Assistant closes the config flow on the "name and assign" screen
+    offering to rename and reassign a device we do not own, and the pattern
+    is deprecated in core since it cannot be represented for a device that
+    belongs to a single config entry.
     """
     if entry.data[CONF_MODE] == MODE_NEW_DEVICE:
-        return DeviceInfo(
-            identifiers={(DOMAIN, entry.entry_id)},
-            name=entry.data[CONF_NAME],
-            manufacturer=DEVICE_MANUFACTURER,
-            model=DEVICE_MODEL,
+        return (
+            DeviceInfo(
+                identifiers={(DOMAIN, entry.entry_id)},
+                name=entry.data[CONF_NAME],
+                manufacturer=DEVICE_MANUFACTURER,
+                model=DEVICE_MODEL,
+            ),
+            None,
         )
 
-    device = dr.async_get(hass).async_get(entry.data[CONF_DEVICE_ID])
-    if device is None:
-        return None
-
-    return DeviceInfo(
-        identifiers=device.identifiers,
-        connections=device.connections,
-    )
+    return None, dr.async_get(hass).async_get(entry.data[CONF_DEVICE_ID])
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up a config entry."""
-    device_info = async_build_device_info(hass, entry)
-    if device_info is None:
+    device_info, device_entry = async_resolve_device(hass, entry)
+    if device_info is None and device_entry is None:
         raise ConfigEntryError(
             f"Device {entry.data.get(CONF_DEVICE_ID)} could not be found in the "
             "device registry. It was most likely deleted."
         )
 
-    runtime = FakePowerRuntime(hass, entry, device_info)
+    runtime = FakePowerRuntime(hass, entry, device_info, device_entry)
     runtime.async_start()
 
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = runtime

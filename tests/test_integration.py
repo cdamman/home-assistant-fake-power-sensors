@@ -51,6 +51,8 @@ async def test_new_device_creates_device_and_entities(hass: HomeAssistant) -> No
     )
     assert device is not None
     assert device.name == "Box internet"
+    # This mode does create the device, so the entry owns it.
+    assert device.config_entries == {entry.entry_id}
 
     entities = er.async_entries_for_config_entry(
         er.async_get(hass), entry.entry_id
@@ -199,6 +201,13 @@ async def test_existing_device_mode_attaches_entities(hass: HomeAssistant) -> No
     )
     assert len(entities) == 2
     assert all(e.device_id == host_device.id for e in entities)
+
+    # The sensors ride on the host device without our entry claiming it:
+    # claiming it would end the config flow on the "name and assign" screen,
+    # offering to rename a device owned by another integration.
+    host_device = device_registry.async_get(host_device.id)
+    assert entry.entry_id not in host_device.config_entries
+    assert host_device.config_entries == {host_entry.entry_id}
 
     assert hass.states.get("sensor.frigo_current_consumption").state == "80.0"
 
