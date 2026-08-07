@@ -65,6 +65,12 @@ integration and no gap in the metering.
 along with a `last_reset` pinned to local midnight, which is the contract the
 long-term statistics expect.
 
+That sensor carries the `diagnostic` entity category, so on the device page it
+sits in the **Diagnostic** block rather than among the sensors. The category is
+cosmetic as far as metering goes — statistics and the Energy dashboard are
+unaffected — but Home Assistant does keep categorised entities out of the
+Alexa, Google Assistant and Cloud exports.
+
 ## How it works
 
 The power is integrated over time using the left-rectangle rule: the total is

@@ -16,6 +16,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     STATE_UNAVAILABLE,
     STATE_UNKNOWN,
+    EntityCategory,
     UnitOfEnergy,
     UnitOfPower,
 )
@@ -92,6 +93,10 @@ class FakeDailyEnergySensor(FakePowerBaseEntity, RestoreSensor):
     _attr_state_class = SensorStateClass.TOTAL
     _attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
     _attr_suggested_display_precision = 3
+    # Filed under the Diagnostic section of the device page: the total is a
+    # by-product of the power, not a reading of its own. Long-term statistics
+    # and the Energy dashboard are unaffected by the category.
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     def __init__(self, runtime: FakePowerRuntime) -> None:
         """Initialise the daily counter."""
