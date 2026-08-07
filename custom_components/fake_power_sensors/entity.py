@@ -21,6 +21,12 @@ class FakePowerBaseEntity(Entity):
         self._entry = runtime.entry
         self._attr_unique_id = f"{runtime.entry.entry_id}_{key}"
         self._attr_device_info = runtime.device_info
+        if runtime.device_entry is not None:
+            # Existing device mode. Setting the registry entry directly
+            # attaches the sensor to a device owned by another config entry
+            # without claiming that device, which a device info made of its
+            # identifiers would do. See async_resolve_device.
+            self.device_entry = runtime.device_entry
         self._attr_translation_key = key
         self._attr_translation_placeholders = {"prefix": self._name_prefix()}
 

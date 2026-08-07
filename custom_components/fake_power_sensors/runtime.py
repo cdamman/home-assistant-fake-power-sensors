@@ -14,7 +14,7 @@ from homeassistant.const import (
     STATE_UNKNOWN,
 )
 from homeassistant.core import Event, EventStateChangedData, HomeAssistant, callback
-from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.device_registry import DeviceEntry, DeviceInfo
 from homeassistant.helpers.event import async_track_state_change_event
 
 from .const import (
@@ -49,12 +49,18 @@ class FakePowerRuntime:
         self,
         hass: HomeAssistant,
         entry: ConfigEntry,
-        device_info: DeviceInfo,
+        device_info: DeviceInfo | None,
+        device_entry: DeviceEntry | None,
     ) -> None:
-        """Initialise the runtime from the config entry."""
+        """Initialise the runtime from the config entry.
+
+        Exactly one of `device_info` (new device mode) and `device_entry`
+        (existing device mode) is set; see `async_resolve_device`.
+        """
         self.hass = hass
         self.entry = entry
         self.device_info = device_info
+        self.device_entry = device_entry
 
         self._listeners: list[Callable[[], None]] = []
         self._unsub_source: Callable[[], None] | None = None
