@@ -44,7 +44,9 @@ folder, then restart.
 ## Configuration
 
 **Settings → Devices & services → Add integration → Fake Power Sensors**, then
-pick one of the two modes.
+pick one of the two modes. The entry sits among the integrations rather than
+under the **Helpers** tab, because *new device* mode really does register a
+device of its own.
 
 | Field | Description |
 | --- | --- |

@@ -4,7 +4,7 @@
   "codeowners": ["@cdamman"],
   "config_flow": true,
   "documentation": "https://github.com/cdamman/home-assistant-fake-power-sensors",
-  "integration_type": "helper",
+  "integration_type": "device",
   "iot_class": "calculated",
   "issue_tracker": "https://github.com/cdamman/home-assistant-fake-power-sensors/issues",
   "requirements": [],
