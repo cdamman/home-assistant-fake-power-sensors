@@ -87,6 +87,16 @@ pip install pytest-homeassistant-custom-component
 pytest
 ```
 
+The brand assets live in `custom_components/fake_power_sensors/brand/`, the
+location HACS looks at for integrations that are not listed in the
+[Home Assistant brands](https://github.com/home-assistant/brands) repository.
+They are generated, so edit the generator rather than the PNGs:
+
+```bash
+pip install Pillow
+python scripts/generate_brand_icon.py
+```
+
 ## License
 
 MIT
