@@ -4,7 +4,7 @@ from datetime import timedelta
 
 import pytest
 
-from homeassistant.const import CONF_NAME, STATE_OFF, STATE_ON
+from homeassistant.const import CONF_NAME, STATE_OFF, STATE_ON, EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
@@ -69,6 +69,11 @@ async def test_new_device_creates_device_and_entities(hass: HomeAssistant) -> No
     assert energy.attributes["unit_of_measurement"] == "kWh"
     assert energy.attributes["state_class"] == "total"
     assert energy.attributes["last_reset"] is not None
+
+    # The daily total is filed as diagnostic, the live power is not.
+    by_id = {entity.entity_id: entity for entity in entities}
+    assert by_id[POWER_ENTITY].entity_category is None
+    assert by_id[ENERGY_ENTITY].entity_category is EntityCategory.DIAGNOSTIC
 
 
 async def test_energy_accumulates_over_time(hass: HomeAssistant, freezer) -> None:
