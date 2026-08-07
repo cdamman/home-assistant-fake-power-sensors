@@ -1,0 +1,9 @@
+# Test dependencies, current Home Assistant.
+#
+# pytest-homeassistant-custom-component pins the exact Home Assistant release
+# it was built against, so this file is what selects the version the suite runs
+# against. Left unpinned on purpose: the scheduled CI run then turns into a
+# canary for Home Assistant releases that break this integration.
+#
+# See requirements-test-min.txt for the oldest supported release.
+pytest-homeassistant-custom-component

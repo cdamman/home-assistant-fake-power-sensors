@@ -1,6 +1,8 @@
 # Fake Power Sensors
 
-[![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
+[![HACS: custom repository](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
+[![Latest release](https://img.shields.io/github/v/release/cdamman/home-assistant-fake-power-sensors?display_name=tag&sort=semver)](https://github.com/cdamman/home-assistant-fake-power-sensors/releases/latest)
+[![Validation](https://github.com/cdamman/home-assistant-fake-power-sensors/actions/workflows/validate.yml/badge.svg)](https://github.com/cdamman/home-assistant-fake-power-sensors/actions/workflows/validate.yml)
 
 A Home Assistant custom integration that creates **fake** electricity
 consumption sensors, ready to be used in the Energy dashboard.
@@ -32,6 +34,13 @@ ignore.
 
 ### Through HACS
 
+[![Open this repository in HACS on your Home Assistant instance.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=cdamman&repository=home-assistant-fake-power-sensors&category=integration)
+
+The button opens this repository straight inside HACS on your own instance, and
+offers to add it as a custom repository. It relies on
+[My Home Assistant](https://my.home-assistant.io/), which needs to have been
+pointed at your instance once beforehand. Manually, the same thing:
+
 1. HACS → ⋮ menu → **Custom repositories**
 2. URL: `https://github.com/cdamman/home-assistant-fake-power-sensors`, category **Integration**
 3. Install **Fake Power Sensors**, then restart Home Assistant
@@ -43,10 +52,13 @@ folder, then restart.
 
 ## Configuration
 
-**Settings → Devices & services → Add integration → Fake Power Sensors**, then
-pick one of the two modes. The entry sits among the integrations rather than
-under the **Helpers** tab, because *new device* mode really does register a
-device of its own.
+[![Add the Fake Power Sensors integration to your Home Assistant instance.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=fake_power_sensors)
+
+The button starts the configuration flow directly, once the integration is
+installed. Manually: **Settings → Devices & services → Add integration → Fake
+Power Sensors**. Then pick one of the two modes. The entry sits among the
+integrations rather than under the **Helpers** tab, because *new device* mode
+really does register a device of its own.
 
 | Field | Description |
 | --- | --- |
@@ -102,9 +114,15 @@ optional sensor prefix and must be kept.
 
 ```bash
 python -m venv .venv && . .venv/bin/activate
-pip install pytest-homeassistant-custom-component
+pip install -r requirements-test.txt
 pytest
 ```
+
+That runs against the current Home Assistant. `requirements-test-min.txt`
+installs the oldest supported one instead, which is what the minimum quoted
+above means in practice. CI runs both, on Python 3.14 and 3.13 respectively —
+Home Assistant dictates the interpreter, so each end of the range comes with
+its own version.
 
 The brand assets live in `custom_components/fake_power_sensors/brand/`, the
 location HACS looks at for integrations that are not listed in the

@@ -1,0 +1,12 @@
+# Test dependencies, oldest supported Home Assistant.
+#
+# Keep this in sync with the "homeassistant" key of hacs.json and with the
+# version quoted in the README: this file is what actually checks that the
+# claim holds.
+pytest-homeassistant-custom-component==0.13.270  # Home Assistant 2025.8.1
+
+# That release pins aiodns without constraining pycares, and pycares 5 dropped
+# the module attributes aiodns reads at import time. Recent Home Assistant
+# carries the constraint itself; here it has to be spelled out, otherwise
+# collection fails before a single test runs.
+pycares<5
