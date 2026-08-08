@@ -16,6 +16,7 @@ CONF_DEVICE_ID = "device_id"
 CONF_POWER = "power"
 CONF_STANDBY_POWER = "standby_power"
 CONF_SOURCE_ENTITY = "source_entity"
+CONF_NOTES = "notes"
 
 # Defaults
 DEFAULT_POWER = 10.0

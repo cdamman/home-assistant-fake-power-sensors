@@ -4,6 +4,7 @@ from datetime import timedelta
 
 import pytest
 
+from homeassistant.config_entries import SOURCE_USER
 from homeassistant.const import CONF_NAME, STATE_OFF, STATE_ON, EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
@@ -17,12 +18,20 @@ from custom_components.fake_power_sensors import async_remove_config_entry_devic
 from custom_components.fake_power_sensors.const import (
     CONF_DEVICE_ID,
     CONF_MODE,
+    CONF_NOTES,
     CONF_POWER,
     CONF_SOURCE_ENTITY,
     CONF_STANDBY_POWER,
     DOMAIN,
     MODE_EXISTING_DEVICE,
     MODE_NEW_DEVICE,
+)
+
+NOTES = (
+    "Fridge in the garage.\n"
+    "Measured 80 W with a plug meter on 2026-01-04.\n"
+    "\n"
+    "  Recheck once the seal is replaced."
 )
 
 POWER_ENTITY = "sensor.box_internet_current_consumption"
@@ -148,6 +157,73 @@ async def test_options_flow_updates_power(hass: HomeAssistant) -> None:
     assert result["type"] == "create_entry"
     assert entry.options[CONF_POWER] == 45.5
     assert hass.states.get(POWER_ENTITY).state == "45.5"
+
+
+async def test_notes_are_stored_by_the_config_flow(hass: HomeAssistant) -> None:
+    """The notepad is filled in at creation time and kept verbatim."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": SOURCE_USER}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": MODE_NEW_DEVICE}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {
+            CONF_NAME: "Box internet",
+            CONF_POWER: 12.0,
+            CONF_STANDBY_POWER: 0.0,
+            CONF_NOTES: NOTES,
+        },
+    )
+    await hass.async_block_till_done()
+
+    assert result["type"] == "create_entry"
+    # Blank lines and indentation are part of what was typed.
+    assert result["options"][CONF_NOTES] == NOTES
+
+
+async def test_notes_round_trip_through_the_options(hass: HomeAssistant) -> None:
+    """Notes are editable afterwards, and offered back for editing."""
+    entry = _new_device_entry()
+    entry.add_to_hass(hass)
+
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={CONF_POWER: 12.0, CONF_STANDBY_POWER: 0.0, CONF_NOTES: NOTES},
+    )
+    await hass.async_block_till_done()
+
+    assert entry.options[CONF_NOTES] == NOTES
+    # Notes carry no measurement, so the metering is untouched.
+    assert hass.states.get(POWER_ENTITY).state == "12.0"
+
+    # Reopening the dialog shows what was written rather than an empty box.
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    notes_field = next(key for key in result["data_schema"].schema if key == CONF_NOTES)
+    assert notes_field.description["suggested_value"] == NOTES
+
+
+async def test_blank_notes_clear_the_notepad(hass: HomeAssistant) -> None:
+    """Emptying the box removes the notes instead of storing whitespace."""
+    entry = _new_device_entry(**{CONF_NOTES: NOTES})
+    entry.add_to_hass(hass)
+
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={CONF_POWER: 12.0, CONF_STANDBY_POWER: 0.0, CONF_NOTES: "  \n\n "},
+    )
+    await hass.async_block_till_done()
+
+    assert CONF_NOTES not in entry.options
 
 
 async def test_source_entity_gates_power(hass: HomeAssistant) -> None:

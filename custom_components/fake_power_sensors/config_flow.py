@@ -20,6 +20,7 @@ from homeassistant.helpers import selector
 from .const import (
     CONF_DEVICE_ID,
     CONF_MODE,
+    CONF_NOTES,
     CONF_POWER,
     CONF_SOURCE_ENTITY,
     CONF_STANDBY_POWER,
@@ -72,6 +73,11 @@ def _common_schema(defaults: dict[str, Any]) -> dict[Any, Any]:
         ): selector.EntitySelector(
             selector.EntitySelectorConfig(domain=CONTROL_ENTITY_DOMAINS)
         ),
+        # Last on purpose: the text area is the tallest field of the form.
+        vol.Optional(
+            CONF_NOTES,
+            description={"suggested_value": defaults.get(CONF_NOTES)},
+        ): selector.TextSelector(selector.TextSelectorConfig(multiline=True)),
     }
 
 
@@ -190,5 +196,11 @@ def _extract_options(user_input: dict[str, Any]) -> dict[str, Any]:
     source_entity = user_input.get(CONF_SOURCE_ENTITY)
     if source_entity:
         options[CONF_SOURCE_ENTITY] = source_entity
+
+    # Stored verbatim, newlines and indentation included; only a note made of
+    # nothing but whitespace counts as no note, which is how it gets cleared.
+    notes = user_input.get(CONF_NOTES) or ""
+    if notes.strip():
+        options[CONF_NOTES] = notes
 
     return options

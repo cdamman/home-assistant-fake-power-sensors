@@ -68,9 +68,16 @@ really does register a device of its own.
 | Power | Power applied while the device is considered on |
 | Standby power | Power applied while the control entity is off |
 | Control entity | *(optional)* `switch`, `light`, `binary_sensor`… driving the on/off state |
+| Notes | *(optional)* free-form multi-line notepad, purely informative |
 
 Without a control entity the power is applied permanently, which is the
 intended behaviour for an appliance that is always powered.
+
+The **Notes** field is a plain text area, meant for whatever is worth
+remembering about a fake meter: where the figure came from, which appliance is
+really behind it, what remains to be checked. It is stored with the entry and
+read back through the **Configure** button; it is not exposed as an entity or
+an attribute, and it never influences the metering.
 
 In *existing device* mode the sensors are attached to the target device
 without this integration taking ownership of it. The flow therefore ends
