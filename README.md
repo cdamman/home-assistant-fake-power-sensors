@@ -97,6 +97,17 @@ deleting the device a fake meter was grafted onto deletes that meter too. Either
 way the sensors go with it instead of lingering in the entity registry with no
 state.
 
+Their long-term statistics go too. Home Assistant keeps those on purpose when a
+real sensor disappears, since the recorded history outlives the hardware, and it
+offers no cleanup beyond **Developer tools → Statistics**; readings this
+integration invented are worth no such care, so removing a fake meter deletes
+them. **This is irreversible**: the past consumption of that meter leaves the
+Energy dashboard with it. Export what you want to keep before deleting.
+
+Statistics orphaned by an older version are not caught up retroactively.
+**Developer tools → Statistics** lists them as *No state is available for this
+entity*, with a button to delete them.
+
 ## Energy dashboard
 
 **Settings → Energy → Individual devices → Add device**, then pick the

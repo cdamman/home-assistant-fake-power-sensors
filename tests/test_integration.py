@@ -1,18 +1,25 @@
 """Functional tests for the Fake Power Sensors integration."""
 
 from datetime import timedelta
+from functools import partial
 
 import pytest
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
     async_fire_time_changed,
 )
+from pytest_homeassistant_custom_component.components.recorder.common import (
+    async_wait_recording_done,
+    do_adhoc_statistics,
+)
 
+from homeassistant.components.recorder.statistics import get_metadata
 from homeassistant.config_entries import SOURCE_USER
 from homeassistant.const import CONF_NAME, STATE_OFF, STATE_ON, EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
+from homeassistant.util import dt as dt_util
 
 from custom_components.fake_power_sensors import async_remove_config_entry_device
 from custom_components.fake_power_sensors.const import (
@@ -33,6 +40,9 @@ NOTES = (
     "\n"
     "  Recheck once the seal is replaced."
 )
+
+# Statistics compile on 5-minute boundaries, so pin a clean one.
+STATISTICS_START = "2026-01-15 10:00:00+00:00"
 
 POWER_ENTITY = "sensor.box_internet_current_consumption"
 ENERGY_ENTITY = "sensor.box_internet_today_s_consumption"
@@ -456,6 +466,92 @@ async def test_removal_of_a_foreign_device_keeps_the_entry(
 
     assert entry.entry_id in hass.config_entries.async_entry_ids()
     assert hass.states.get("sensor.frigo_current_consumption") is not None
+
+
+async def _recorded_statistics(
+    hass: HomeAssistant, statistic_ids: set[str]
+) -> set[str]:
+    """Return which of these statistic ids the database actually holds.
+
+    Deliberately not list_statistic_ids: that one also reports the ids a
+    platform announces for its live entities, so it answers the same before
+    and after a deletion and would hide the very leftovers under test.
+    """
+    metadata = await hass.async_add_executor_job(
+        partial(get_metadata, hass, statistic_ids=statistic_ids)
+    )
+    return set(metadata)
+
+
+async def _compile_statistics(hass: HomeAssistant, freezer) -> None:
+    """Give the sensors some history and turn it into statistics."""
+    await async_wait_recording_done(hass)
+
+    freezer.tick(timedelta(minutes=10))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+    await async_wait_recording_done(hass)
+
+    do_adhoc_statistics(hass, start=dt_util.parse_datetime(STATISTICS_START))
+    await async_wait_recording_done(hass)
+
+
+async def test_statistics_are_deleted_with_the_entry(
+    recorder_mock, hass: HomeAssistant, freezer
+) -> None:
+    """Deleting a fake device takes its long-term statistics with it.
+
+    Core never deletes them: the recorder only follows entity renames, so the
+    rows outlive the entity and Developer tools > Statistics reports them as
+    having no state available.
+    """
+    freezer.move_to(STATISTICS_START)
+
+    entry = _new_device_entry()
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    await _compile_statistics(hass, freezer)
+    assert await _recorded_statistics(hass, {POWER_ENTITY, ENERGY_ENTITY}) == {
+        POWER_ENTITY,
+        ENERGY_ENTITY,
+    }
+
+    device = dr.async_get(hass).async_get_device(identifiers={(DOMAIN, entry.entry_id)})
+    assert await async_remove_config_entry_device(hass, entry, device)
+    await hass.async_block_till_done()
+    await async_wait_recording_done(hass)
+
+    assert await _recorded_statistics(hass, {POWER_ENTITY, ENERGY_ENTITY}) == set()
+
+
+async def test_statistics_of_a_grafted_meter_are_deleted_too(
+    recorder_mock, hass: HomeAssistant, freezer
+) -> None:
+    """Same when the host device goes, which removes the entry indirectly."""
+    freezer.move_to(STATISTICS_START)
+
+    host_device = _host_device(hass, "frigo", "Frigo")
+    entry = _existing_device_entry(host_device.id)
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    grafted = {
+        "sensor.frigo_current_consumption",
+        "sensor.frigo_today_s_consumption",
+    }
+
+    await _compile_statistics(hass, freezer)
+    assert await _recorded_statistics(hass, grafted) == grafted
+
+    dr.async_get(hass).async_remove_device(host_device.id)
+    await hass.async_block_till_done()
+    await async_wait_recording_done(hass)
+
+    assert entry.entry_id not in hass.config_entries.async_entry_ids()
+    assert await _recorded_statistics(hass, grafted) == set()
 
 
 async def test_unload_stops_watching_the_target_device(hass: HomeAssistant) -> None:
