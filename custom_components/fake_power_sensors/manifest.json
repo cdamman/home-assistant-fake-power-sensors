@@ -1,6 +1,7 @@
 {
   "domain": "fake_power_sensors",
   "name": "Fake Power Sensors",
+  "after_dependencies": ["recorder"],
   "codeowners": ["@cdamman"],
   "config_flow": true,
   "documentation": "https://github.com/cdamman/home-assistant-fake-power-sensors",

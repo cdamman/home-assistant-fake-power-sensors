@@ -9,11 +9,14 @@ from __future__ import annotations
 
 import logging
 
+from homeassistant.components.recorder import DOMAIN as RECORDER_DOMAIN
+from homeassistant.components.recorder import get_instance
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_NAME, Platform
 from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryError
 from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.device_registry import (
     DeviceInfo,
     EventDeviceRegistryUpdatedData,
@@ -148,6 +151,36 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             runtime.async_shutdown()
 
     return unload_ok
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Delete the long-term statistics recorded for the sensors.
+
+    Nothing in core does this. The recorder only follows entity renames, so
+    the statistics of a removed entity stay in the database and show up under
+    Developer tools > Statistics as "No state is available for this entity".
+    For real measurements that is the right call, since the history outlives
+    the hardware; these readings are invented, so they leave with the entry
+    that invented them.
+
+    Core calls this before it clears the entity registry for the entry, which
+    is what makes the entity ids -- the statistic ids of an entity-backed
+    sensor -- still readable here.
+    """
+    if RECORDER_DOMAIN not in hass.config.components:
+        return
+
+    statistic_ids = [
+        entity.entity_id
+        for entity in er.async_entries_for_config_entry(
+            er.async_get(hass), entry.entry_id
+        )
+    ]
+    if not statistic_ids:
+        return
+
+    _LOGGER.debug("Clearing the statistics of %s", ", ".join(statistic_ids))
+    get_instance(hass).async_clear_statistics(statistic_ids)
 
 
 async def async_remove_config_entry_device(
