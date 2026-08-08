@@ -83,6 +83,13 @@ The power stays editable at any time through the **Configure** button on the
 entry. The new value takes effect immediately, with no reload of the
 integration and no gap in the metering.
 
+The target device, on the other hand, is fixed once the entry is created. So a
+fake meter is deleted along with the device it describes: deleting a fake device
+deletes its entry rather than letting it come back on the next restart, and
+deleting the device a fake meter was grafted onto deletes that meter too. Either
+way the sensors go with it instead of lingering in the entity registry with no
+state.
+
 ## Energy dashboard
 
 **Settings → Energy → Individual devices → Add device**, then pick the
