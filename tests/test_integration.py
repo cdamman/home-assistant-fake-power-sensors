@@ -13,6 +13,7 @@ from pytest_homeassistant_custom_component.common import (
     async_fire_time_changed,
 )
 
+from custom_components.fake_power_sensors import async_remove_config_entry_device
 from custom_components.fake_power_sensors.const import (
     CONF_DEVICE_ID,
     CONF_MODE,
@@ -288,6 +289,116 @@ async def test_prefix_disambiguates_several_meters(hass: HomeAssistant) -> None:
         "Rack NAS Current consumption",
         "Rack NAS Today's consumption",
     }
+
+
+def _host_device(hass: HomeAssistant, identifier: str, name: str) -> dr.DeviceEntry:
+    """Create a device owned by another integration."""
+    host_entry = MockConfigEntry(domain="demo", title="Host")
+    host_entry.add_to_hass(hass)
+
+    return dr.async_get(hass).async_get_or_create(
+        config_entry_id=host_entry.entry_id,
+        identifiers={("demo", identifier)},
+        name=name,
+    )
+
+
+def _existing_device_entry(device_id: str, prefix: str = "") -> MockConfigEntry:
+    """Build a config entry grafted onto an existing device."""
+    return MockConfigEntry(
+        domain=DOMAIN,
+        title="Frigo",
+        data={
+            CONF_MODE: MODE_EXISTING_DEVICE,
+            CONF_DEVICE_ID: device_id,
+            CONF_NAME: prefix,
+        },
+        options={CONF_POWER: 80.0, CONF_STANDBY_POWER: 0.0},
+    )
+
+
+async def test_target_device_removal_removes_the_entry(hass: HomeAssistant) -> None:
+    """Deleting the host device takes the fake meter with it.
+
+    Home Assistant does not remove entities of a config entry that is not
+    part of the deleted device, it merely unlinks them. Left alone they would
+    stay in the registry as entities without a state, and the entry could no
+    longer be set up.
+    """
+    host_device = _host_device(hass, "frigo", "Frigo")
+
+    entry = _existing_device_entry(host_device.id)
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert hass.states.get("sensor.frigo_current_consumption") is not None
+
+    dr.async_get(hass).async_remove_device(host_device.id)
+    await hass.async_block_till_done()
+
+    assert entry.entry_id not in hass.config_entries.async_entry_ids()
+    assert er.async_entries_for_config_entry(er.async_get(hass), entry.entry_id) == []
+    assert hass.states.get("sensor.frigo_current_consumption") is None
+
+
+async def test_own_device_removal_removes_the_entry(hass: HomeAssistant) -> None:
+    """Deleting a fake device deletes its entry, so it stays deleted."""
+    entry = _new_device_entry()
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    device_registry = dr.async_get(hass)
+    device = device_registry.async_get_device(identifiers={(DOMAIN, entry.entry_id)})
+
+    assert await async_remove_config_entry_device(hass, entry, device)
+    await hass.async_block_till_done()
+
+    assert entry.entry_id not in hass.config_entries.async_entry_ids()
+    assert er.async_entries_for_config_entry(er.async_get(hass), entry.entry_id) == []
+    assert (
+        device_registry.async_get_device(identifiers={(DOMAIN, entry.entry_id)})
+        is None
+    )
+    assert hass.states.get(POWER_ENTITY) is None
+
+
+async def test_removal_of_a_foreign_device_keeps_the_entry(
+    hass: HomeAssistant,
+) -> None:
+    """A device we do not own is never a reason to delete our entry."""
+    host_device = _host_device(hass, "frigo", "Frigo")
+
+    entry = _existing_device_entry(host_device.id)
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert await async_remove_config_entry_device(hass, entry, host_device)
+    await hass.async_block_till_done()
+
+    assert entry.entry_id in hass.config_entries.async_entry_ids()
+    assert hass.states.get("sensor.frigo_current_consumption") is not None
+
+
+async def test_unload_stops_watching_the_target_device(hass: HomeAssistant) -> None:
+    """The device watch goes away with the entry it belongs to."""
+    host_device = _host_device(hass, "frigo", "Frigo")
+
+    entry = _existing_device_entry(host_device.id)
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    await hass.async_block_till_done()
+
+    # Removing the device now must not try to remove an already unloaded entry.
+    dr.async_get(hass).async_remove_device(host_device.id)
+    await hass.async_block_till_done()
+
+    assert entry.entry_id in hass.config_entries.async_entry_ids()
 
 
 async def test_unload_entry(hass: HomeAssistant) -> None:

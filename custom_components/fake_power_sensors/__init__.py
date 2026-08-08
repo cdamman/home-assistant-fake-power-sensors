@@ -11,10 +11,14 @@ import logging
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_NAME, Platform
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryError
 from homeassistant.helpers import device_registry as dr
-from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.device_registry import (
+    DeviceInfo,
+    EventDeviceRegistryUpdatedData,
+)
+from homeassistant.helpers.event import async_track_device_registry_updated_event
 
 from .const import (
     CONF_DEVICE_ID,
@@ -63,6 +67,47 @@ def async_resolve_device(
     return None, dr.async_get(hass).async_get(entry.data[CONF_DEVICE_ID])
 
 
+@callback
+def async_watch_target_device(
+    hass: HomeAssistant, entry: ConfigEntry, device_id: str
+) -> None:
+    """Remove the entry if the device it was grafted onto disappears.
+
+    Only "existing device" mode needs this. The entry deliberately stays out
+    of the target device's config entries, so Home Assistant does not
+    consider our sensors part of that device when it is deleted: instead of
+    removing them, it keeps them in the entity registry with no device at all
+    (see the "remove" branch of entity_registry._handle_device_registry_event).
+    They then survive as entities nothing provides a state for, and the entry
+    itself can no longer be set up.
+
+    Nothing here can replace the target device — it is fixed at creation time
+    and the options flow does not offer it — so the entry has lost its
+    purpose and goes away with the device. This mirrors what switch_as_x does
+    when the entity it wraps is removed.
+    """
+
+    async def _async_device_updated(
+        event: Event[EventDeviceRegistryUpdatedData],
+    ) -> None:
+        """Drop the entry once the target device is really gone."""
+        if event.data["action"] != "remove":
+            return
+
+        _LOGGER.info(
+            "Device %s was removed, removing the fake meter %s that rode on it",
+            device_id,
+            entry.title,
+        )
+        await hass.config_entries.async_remove(entry.entry_id)
+
+    entry.async_on_unload(
+        async_track_device_registry_updated_event(
+            hass, device_id, _async_device_updated
+        )
+    )
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up a config entry."""
     device_info, device_entry = async_resolve_device(hass, entry)
@@ -71,6 +116,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             f"Device {entry.data.get(CONF_DEVICE_ID)} could not be found in the "
             "device registry. It was most likely deleted."
         )
+
+    if device_entry is not None:
+        async_watch_target_device(hass, entry, device_entry.id)
 
     runtime = FakePowerRuntime(hass, entry, device_info, device_entry)
     runtime.async_start()
@@ -105,5 +153,20 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_remove_config_entry_device(
     hass: HomeAssistant, entry: ConfigEntry, device_entry: dr.DeviceEntry
 ) -> bool:
-    """Allow the device to be removed manually from the UI."""
+    """Delete the entry along with the device it created.
+
+    Reached in "new device" mode only, the sole mode where the device belongs
+    to this entry. Accepting the removal without also removing the entry would
+    leave an entry with nothing to show, recreating the device on the next
+    restart. Core tolerates the entry vanishing under it here, see
+    `homeassistant.components.config.device_registry`.
+    """
+    if entry.data[CONF_MODE] != MODE_NEW_DEVICE:
+        # Defensive: in existing device mode the entry is not part of the
+        # target device's config entries, so core has no reason to ask us
+        # about it. Deleting the entry over somebody else's device would be
+        # the wrong answer if that ever changes.
+        return True
+
+    await hass.config_entries.async_remove(entry.entry_id)
     return True
