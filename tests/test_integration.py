@@ -3,16 +3,16 @@
 from datetime import timedelta
 
 import pytest
+from pytest_homeassistant_custom_component.common import (
+    MockConfigEntry,
+    async_fire_time_changed,
+)
 
 from homeassistant.config_entries import SOURCE_USER
 from homeassistant.const import CONF_NAME, STATE_OFF, STATE_ON, EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
-from pytest_homeassistant_custom_component.common import (
-    MockConfigEntry,
-    async_fire_time_changed,
-)
 
 from custom_components.fake_power_sensors import async_remove_config_entry_device
 from custom_components.fake_power_sensors.const import (

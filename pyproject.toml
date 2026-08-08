@@ -11,3 +11,12 @@ select = ["E", "F", "I", "UP", "B", "SIM", "D"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "pep257"
+
+[tool.ruff.lint.isort]
+# Match the import convention of Home Assistant core, which the sources
+# already follow: sort by module name within a section whatever the import
+# form, and give homeassistant a section of its own between the third-party
+# packages and this integration.
+force-sort-within-sections = true
+known-first-party = ["homeassistant"]
+known-local-folder = ["custom_components"]
