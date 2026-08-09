@@ -73,6 +73,24 @@ really does register a device of its own.
 Without a control entity the power is applied permanently, which is the
 intended behaviour for an appliance that is always powered.
 
+*Existing device* mode asks in two screens. The first one takes the device and
+the consumption to fake; the second one the control entity, drawn from that
+device, which is why the device has to be settled first. The sensor prefix sits
+there too, under the control entity.
+
+Only the device's own entities in the domains above are listed. A device
+exposing none leaves the picker empty, and the field being optional, it is
+simply left blank. When the entity that really drives the appliance lives
+elsewhere — a smart plug, which is its own device — tick **Show every entity**
+and submit: the screen comes back offering the whole instance. A config flow
+cannot refresh a form as it is filled in, hence the round trip; whatever was
+already typed is carried over.
+
+The **Configure** button offers the same narrowed list and the same box, so the
+control entity can be repointed at any time, including to an entity of yet
+another device. A *new device* entry gets no box there: it targets no device,
+so its list is never narrowed in the first place.
+
 The **Notes** field is a plain text area, meant for whatever is worth
 remembering about a fake meter: where the figure came from, which appliance is
 really behind it, what remains to be checked. It is stored with the entry and

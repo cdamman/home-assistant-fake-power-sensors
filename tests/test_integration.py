@@ -27,6 +27,7 @@ from custom_components.fake_power_sensors.const import (
     CONF_MODE,
     CONF_NOTES,
     CONF_POWER,
+    CONF_SHOW_ALL_ENTITIES,
     CONF_SOURCE_ENTITY,
     CONF_STANDBY_POWER,
     DOMAIN,
@@ -191,6 +192,366 @@ async def test_notes_are_stored_by_the_config_flow(hass: HomeAssistant) -> None:
     assert result["type"] == "create_entry"
     # Blank lines and indentation are part of what was typed.
     assert result["options"][CONF_NOTES] == NOTES
+
+
+def _control_candidates(result, field: str = CONF_SOURCE_ENTITY) -> set[str] | None:
+    """Return the entities a form offers for the control entity.
+
+    None means the picker carries no explicit list, i.e. it still offers every
+    entity of the control domains. An empty set is a real answer: a device with
+    nothing controllable on it offers nothing.
+    """
+    schema = result["data_schema"].schema
+    key = next(candidate for candidate in schema if candidate == field)
+    candidates = schema[key].config.get("include_entities")
+    return None if candidates is None else set(candidates)
+
+
+async def _device_with_entities(hass: HomeAssistant) -> dr.DeviceEntry:
+    """Build a host device carrying controllable and unrelated entities."""
+    host_device = _host_device(hass, "frigo", "Frigo")
+    entity_registry = er.async_get(hass)
+
+    for domain, unique_id in (
+        ("switch", "plug"),
+        ("binary_sensor", "door"),
+        ("sensor", "temperature"),  # not a control domain
+    ):
+        entity_registry.async_get_or_create(
+            domain,
+            "demo",
+            unique_id,
+            device_id=host_device.id,
+            suggested_object_id=unique_id,
+        )
+
+    # An entity on another device must not leak into the list.
+    other_device = _host_device(hass, "four", "Four")
+    entity_registry.async_get_or_create(
+        "switch", "demo", "oven", device_id=other_device.id, suggested_object_id="oven"
+    )
+
+    return host_device
+
+
+async def test_existing_device_flow_offers_only_that_device_entities(
+    hass: HomeAssistant,
+) -> None:
+    """The control entity is picked among the entities of the chosen device."""
+    host_device = await _device_with_entities(hass)
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": SOURCE_USER}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": MODE_EXISTING_DEVICE}
+    )
+
+    # Choosing the device comes first: the list below depends on it.
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {CONF_DEVICE_ID: host_device.id, CONF_POWER: 80.0, CONF_STANDBY_POWER: 1.0},
+    )
+    assert result["type"] == "form"
+    assert result["step_id"] == "existing_device_settings"
+    assert result["description_placeholders"] == {"device": "Frigo"}
+
+    # Controllable entities of that device only: not its sensor, which is no
+    # control domain, and not the switch of the other device.
+    assert _control_candidates(result) == {"switch.plug", "binary_sensor.door"}
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_SOURCE_ENTITY: "switch.plug"}
+    )
+    await hass.async_block_till_done()
+
+    assert result["type"] == "create_entry"
+    assert result["title"] == "Frigo"
+    # Both screens land in the same entry.
+    assert result["options"][CONF_POWER] == 80.0
+    assert result["options"][CONF_STANDBY_POWER] == 1.0
+    assert result["data"] == {
+        CONF_MODE: MODE_EXISTING_DEVICE,
+        CONF_DEVICE_ID: host_device.id,
+        CONF_NAME: "",
+    }
+    assert result["options"][CONF_SOURCE_ENTITY] == "switch.plug"
+
+
+async def test_existing_device_flow_keeps_the_prefix_in_the_title(
+    hass: HomeAssistant,
+) -> None:
+    """The prefix asked with the device still reaches the entry title."""
+    host_device = await _device_with_entities(hass)
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": SOURCE_USER}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": MODE_EXISTING_DEVICE}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {CONF_DEVICE_ID: host_device.id, CONF_POWER: 80.0, CONF_STANDBY_POWER: 0.0},
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_NAME: "  Compresseur "}
+    )
+    await hass.async_block_till_done()
+
+    assert result["title"] == "Frigo — Compresseur"
+    assert result["data"][CONF_NAME] == "Compresseur"
+
+
+async def _at_the_control_entity_screen(hass: HomeAssistant, device_id: str):
+    """Walk the existing-device flow up to its second screen."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": SOURCE_USER}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": MODE_EXISTING_DEVICE}
+    )
+    return await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {CONF_DEVICE_ID: device_id, CONF_POWER: 80.0, CONF_STANDBY_POWER: 0.0},
+    )
+
+
+def _field(result, field: str):
+    """Return the schema marker of a field, defaults and all."""
+    return next(key for key in result["data_schema"].schema if key == field)
+
+
+async def test_show_all_entities_widens_the_picker(hass: HomeAssistant) -> None:
+    """The escape hatch reaches an entity carried by another device."""
+    host_device = await _device_with_entities(hass)
+    result = await _at_the_control_entity_screen(hass, host_device.id)
+
+    assert _control_candidates(result) == {"switch.plug", "binary_sensor.door"}
+
+    # Ticking the box takes effect on submit, the form being static.
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {CONF_SHOW_ALL_ENTITIES: True, CONF_NAME: "Compresseur"},
+    )
+
+    assert result["type"] == "form"
+    assert result["step_id"] == "existing_device_settings"
+    assert _control_candidates(result) is None
+    # Neither the box nor what was already typed is lost on the way.
+    assert _field(result, CONF_SHOW_ALL_ENTITIES).default() is True
+    assert _field(result, CONF_NAME).description["suggested_value"] == "Compresseur"
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {
+            CONF_SOURCE_ENTITY: "switch.oven",
+            CONF_SHOW_ALL_ENTITIES: True,
+            CONF_NAME: "Compresseur",
+        },
+    )
+    await hass.async_block_till_done()
+
+    assert result["type"] == "create_entry"
+    assert result["title"] == "Frigo — Compresseur"
+    assert result["options"][CONF_SOURCE_ENTITY] == "switch.oven"
+    # The box drives the form, it is no setting of the meter.
+    assert CONF_SHOW_ALL_ENTITIES not in result["options"]
+
+
+async def test_unticking_show_all_entities_narrows_again(
+    hass: HomeAssistant,
+) -> None:
+    """The escape hatch closes as easily as it opens."""
+    host_device = await _device_with_entities(hass)
+    result = await _at_the_control_entity_screen(hass, host_device.id)
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_SHOW_ALL_ENTITIES: True}
+    )
+    assert _control_candidates(result) is None
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_SHOW_ALL_ENTITIES: False}
+    )
+
+    assert result["type"] == "form"
+    assert _control_candidates(result) == {"switch.plug", "binary_sensor.door"}
+
+
+async def test_a_device_with_nothing_controllable_offers_nothing(
+    hass: HomeAssistant,
+) -> None:
+    """An empty list stays empty rather than falling back to every entity."""
+    host_device = _host_device(hass, "mur", "Mur")
+    er.async_get(hass).async_get_or_create(
+        "sensor", "demo", "humidity", device_id=host_device.id
+    )
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": SOURCE_USER}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": MODE_EXISTING_DEVICE}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {CONF_DEVICE_ID: host_device.id, CONF_POWER: 10.0, CONF_STANDBY_POWER: 0.0},
+    )
+
+    assert _control_candidates(result) == set()
+
+
+async def test_new_device_flow_still_offers_every_entity(hass: HomeAssistant) -> None:
+    """A brand new device carries nothing, so nothing is narrowed there."""
+    await _device_with_entities(hass)
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": SOURCE_USER}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": MODE_NEW_DEVICE}
+    )
+
+    assert _control_candidates(result) is None
+
+
+async def test_options_of_a_grafted_meter_are_narrowed_too(
+    hass: HomeAssistant,
+) -> None:
+    """Reconfiguring keeps offering the host device's entities."""
+    host_device = await _device_with_entities(hass)
+
+    entry = _existing_device_entry(host_device.id)
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+
+    assert _control_candidates(result) == {"switch.plug", "binary_sensor.door"}
+
+
+async def test_options_keep_a_control_entity_from_another_device(
+    hass: HomeAssistant,
+) -> None:
+    """A meter set up before the narrowing keeps its own control entity.
+
+    Reopening the options must not quietly drop a working setting just because
+    the entity driving it lives on another device.
+    """
+    host_device = await _device_with_entities(hass)
+
+    entry = _existing_device_entry(host_device.id)
+    entry.add_to_hass(hass)
+    hass.config_entries.async_update_entry(
+        entry, options={**entry.options, CONF_SOURCE_ENTITY: "switch.oven"}
+    )
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+
+    assert _control_candidates(result) == {
+        "switch.plug",
+        "binary_sensor.door",
+        "switch.oven",
+    }
+
+
+async def test_options_can_swap_for_another_foreign_control_entity(
+    hass: HomeAssistant,
+) -> None:
+    """The box reaches a second foreign entity, not just the one in place.
+
+    The appliance is driven by a plug that is its own device; it later moves to
+    a second plug. Without the box the new one would be unreachable, and the
+    entry would have to be deleted and recreated -- losing its statistics.
+    """
+    host_device = await _device_with_entities(hass)
+    other_device = _host_device(hass, "prise", "Prise cellier")
+    er.async_get(hass).async_get_or_create(
+        "switch",
+        "demo",
+        "cellier",
+        device_id=other_device.id,
+        suggested_object_id="prise_cellier",
+    )
+
+    entry = _existing_device_entry(host_device.id)
+    entry.add_to_hass(hass)
+    hass.config_entries.async_update_entry(
+        entry, options={**entry.options, CONF_SOURCE_ENTITY: "switch.oven"}
+    )
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+
+    # The entity in place is offered, the second plug is not.
+    assert _control_candidates(result) == {
+        "switch.plug",
+        "binary_sensor.door",
+        "switch.oven",
+    }
+    assert _field(result, CONF_SHOW_ALL_ENTITIES).default() is False
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={
+            CONF_POWER: 80.0,
+            CONF_STANDBY_POWER: 0.0,
+            CONF_SOURCE_ENTITY: "switch.oven",
+            CONF_SHOW_ALL_ENTITIES: True,
+        },
+    )
+
+    assert result["type"] == "form"
+    assert _control_candidates(result) is None
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={
+            CONF_POWER: 80.0,
+            CONF_STANDBY_POWER: 0.0,
+            CONF_SOURCE_ENTITY: "switch.prise_cellier",
+            CONF_SHOW_ALL_ENTITIES: True,
+        },
+    )
+    await hass.async_block_till_done()
+
+    assert result["type"] == "create_entry"
+    assert entry.options[CONF_SOURCE_ENTITY] == "switch.prise_cellier"
+    assert CONF_SHOW_ALL_ENTITIES not in entry.options
+    # The new control entity drives the meter straight away.
+    assert hass.states.get("sensor.frigo_current_consumption").state == "0.0"
+
+
+async def test_options_of_a_fake_device_have_no_box(hass: HomeAssistant) -> None:
+    """Nothing to widen when the entry targets no device."""
+    entry = _new_device_entry()
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+
+    fields = {str(key.schema) for key in result["data_schema"].schema}
+    assert CONF_SHOW_ALL_ENTITIES not in fields
+
+
+async def test_options_of_a_fake_device_are_not_narrowed(hass: HomeAssistant) -> None:
+    """A fake device has no entities of its own to drive it."""
+    await _device_with_entities(hass)
+
+    entry = _new_device_entry()
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+
+    assert _control_candidates(result) is None
 
 
 async def test_notes_round_trip_through_the_options(hass: HomeAssistant) -> None:

@@ -17,6 +17,7 @@ CONF_POWER = "power"
 CONF_STANDBY_POWER = "standby_power"
 CONF_SOURCE_ENTITY = "source_entity"
 CONF_NOTES = "notes"
+CONF_SHOW_ALL_ENTITIES = "show_all_entities"
 
 # Defaults
 DEFAULT_POWER = 10.0
