@@ -45,6 +45,9 @@ pointed at your instance once beforehand. Manually, the same thing:
 2. URL: `https://github.com/cdamman/home-assistant-fake-power-sensors`, category **Integration**
 3. Install **Fake Power Sensors**, then restart Home Assistant
 
+HACS installs the `fake_power_sensors.zip` asset of a published release, so only
+released versions are offered — see [Releasing](#releasing).
+
 ### Manually
 
 Copy `custom_components/fake_power_sensors` into the Home Assistant `config`
@@ -152,6 +155,22 @@ English and French are bundled. Adding a language means dropping a
 `custom_components/fake_power_sensors/translations/<code>.json` file next to
 the existing ones. The `{prefix}` placeholder in the entity names carries the
 optional sensor prefix and must be kept.
+
+## Releasing
+
+Publish a GitHub release tagged `vX.Y.Z`. Nothing else: the `Release` workflow
+stamps `X.Y.Z` into `manifest.json`, zips the integration directory and attaches
+`fake_power_sensors.zip` to that release, which is what HACS installs.
+
+So the tag is the only place a version is written. `manifest.json` carries
+`0.0.0` in the repository on purpose — a value that is always replaced on the
+way into the zip, rather than a real number drifting behind the tags. An
+installation made straight from the branch instead of a release reports that
+`0.0.0`.
+
+A tag that is not `x.y.z` (optionally followed by `-beta1` or `.1`) fails the
+workflow rather than shipping a manifest Home Assistant would refuse to load.
+Re-running the job on an existing release replaces the asset.
 
 ## Development
 
