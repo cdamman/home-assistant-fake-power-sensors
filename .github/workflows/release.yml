@@ -1,0 +1,54 @@
+name: Release
+
+# HACS installs a zip-release integration from the asset attached to the
+# GitHub release, never from the repository tree. That is what lets the
+# version reported by the integration follow the tag: the manifest is stamped
+# on the way into the zip, so the tag stays the single place a version is
+# written.
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    name: Attach the integration zip
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Stamp the manifest with the release tag
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+
+          # A typo in a tag would otherwise ship a manifest Home Assistant
+          # refuses to load, and only the first user to update would find out.
+          if ! printf '%s' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.]+)?$'; then
+            echo "::error::Tag '${GITHUB_REF_NAME}' is not a x.y.z version"
+            exit 1
+          fi
+
+          manifest=custom_components/fake_power_sensors/manifest.json
+          jq --arg version "$version" '.version = $version' "$manifest" > manifest.stamped
+          mv manifest.stamped "$manifest"
+
+          echo "Packaging version $(jq -r .version "$manifest")"
+
+      - name: Build the zip
+        run: |
+          # The zip holds the contents of the integration directory, not the
+          # directory itself: HACS unpacks it straight into
+          # custom_components/fake_power_sensors/.
+          cd custom_components/fake_power_sensors
+          zip -r "${GITHUB_WORKSPACE}/fake_power_sensors.zip" . -x '*__pycache__*'
+          unzip -l "${GITHUB_WORKSPACE}/fake_power_sensors.zip"
+
+      - name: Attach it to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # --clobber so re-running the job on the same release replaces the
+          # asset instead of failing.
+          gh release upload "$GITHUB_REF_NAME" fake_power_sensors.zip --clobber
