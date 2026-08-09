@@ -12,21 +12,31 @@
       },
       "existing_device": {
         "title": "Existing device",
-        "description": "The sensors will be attached to the selected device.",
+        "description": "Choose the device and the consumption to fake. The control entity is asked on the next screen.",
         "data": {
           "device_id": "Device",
-          "name": "Sensor prefix (optional)",
           "power": "Power",
           "standby_power": "Standby power",
-          "source_entity": "Control entity (optional)",
           "notes": "Notes"
         },
         "data_description": {
-          "name": "Only needed when creating several fake meters on the same device.",
-          "standby_power": "Power applied while the control entity is off.",
-          "source_entity": "When set, the power is only applied while this entity is on.",
           "power": "Applied continuously when no control entity is set.",
+          "standby_power": "Power applied while the control entity is off.",
           "notes": "Free-form notes about this fake meter. Purely informative."
+        }
+      },
+      "existing_device_settings": {
+        "title": "Control entity",
+        "description": "The sensors will be attached to {device}. The control entity is offered among the entities of that device.",
+        "data": {
+          "source_entity": "Control entity (optional)",
+          "show_all_entities": "Show every entity",
+          "name": "Sensor prefix (optional)"
+        },
+        "data_description": {
+          "source_entity": "When set, the power is only applied while this entity is on. Only the entities of the selected device are offered.",
+          "show_all_entities": "Offer the control entities of the whole instance, not only those of this device. Tick it and submit to reload the list.",
+          "name": "Only needed when creating several fake meters on the same device."
         }
       },
       "new_device": {
@@ -51,7 +61,8 @@
       "device_not_found": "This device could not be found in the registry."
     },
     "abort": {
-      "already_configured": "This fake meter is already configured."
+      "already_configured": "This fake meter is already configured.",
+      "device_not_found": "This device could not be found in the registry. It was most likely deleted while the dialog was open."
     }
   },
   "options": {
@@ -62,12 +73,14 @@
           "power": "Power",
           "standby_power": "Standby power",
           "source_entity": "Control entity (optional)",
+          "show_all_entities": "Show every entity",
           "notes": "Notes"
         },
         "data_description": {
           "power": "Can be changed at any time; the new value is applied immediately.",
           "standby_power": "Power applied while the control entity is off.",
           "source_entity": "When set, the power is only applied while this entity is on.",
+          "show_all_entities": "Offer the control entities of the whole instance, not only those of the device the sensors are attached to. Tick it and submit to reload the list.",
           "notes": "Free-form notes about this fake meter. Purely informative, they change no measurement."
         }
       }

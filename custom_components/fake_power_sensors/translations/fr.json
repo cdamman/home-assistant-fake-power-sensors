@@ -12,21 +12,31 @@
       },
       "existing_device": {
         "title": "Appareil existant",
-        "description": "Les capteurs seront rattachés à l'appareil sélectionné.",
+        "description": "Choisissez l'appareil et la consommation à simuler. L'entité de contrôle est demandée à l'écran suivant.",
         "data": {
           "device_id": "Appareil",
-          "name": "Préfixe des capteurs (optionnel)",
           "power": "Puissance",
           "standby_power": "Puissance de veille",
-          "source_entity": "Entité de contrôle (optionnel)",
           "notes": "Notes"
         },
         "data_description": {
-          "name": "À renseigner uniquement pour créer plusieurs compteurs fictifs sur le même appareil.",
-          "standby_power": "Puissance appliquée lorsque l'entité de contrôle est éteinte.",
-          "source_entity": "Si renseignée, la puissance n'est appliquée que lorsque cette entité est allumée.",
           "power": "Puissance appliquée en permanence si aucune entité de contrôle n'est renseignée.",
+          "standby_power": "Puissance appliquée lorsque l'entité de contrôle est éteinte.",
           "notes": "Notes libres à propos de ce compteur fictif. Purement informatives."
+        }
+      },
+      "existing_device_settings": {
+        "title": "Entité de contrôle",
+        "description": "Les capteurs seront rattachés à {device}. L'entité de contrôle est proposée parmi les entités de cet appareil.",
+        "data": {
+          "source_entity": "Entité de contrôle (optionnel)",
+          "show_all_entities": "Afficher toutes les entités",
+          "name": "Préfixe des capteurs (optionnel)"
+        },
+        "data_description": {
+          "source_entity": "Si renseignée, la puissance n'est appliquée que lorsque cette entité est allumée. Seules les entités de l'appareil sélectionné sont proposées.",
+          "show_all_entities": "Propose les entités de contrôle de toute l'instance, pas seulement celles de cet appareil. Cochez puis validez pour recharger la liste.",
+          "name": "À renseigner uniquement pour créer plusieurs compteurs fictifs sur le même appareil."
         }
       },
       "new_device": {
@@ -51,7 +61,8 @@
       "device_not_found": "Cet appareil est introuvable dans le registre."
     },
     "abort": {
-      "already_configured": "Ce compteur fictif est déjà configuré."
+      "already_configured": "Ce compteur fictif est déjà configuré.",
+      "device_not_found": "Cet appareil est introuvable dans le registre. Il a probablement été supprimé pendant que la fenêtre était ouverte."
     }
   },
   "options": {
@@ -62,12 +73,14 @@
           "power": "Puissance",
           "standby_power": "Puissance de veille",
           "source_entity": "Entité de contrôle (optionnel)",
+          "show_all_entities": "Afficher toutes les entités",
           "notes": "Notes"
         },
         "data_description": {
           "power": "Modifiable à tout moment ; la nouvelle valeur est appliquée immédiatement.",
           "standby_power": "Puissance appliquée lorsque l'entité de contrôle est éteinte.",
           "source_entity": "Si renseignée, la puissance n'est appliquée que lorsque cette entité est allumée.",
+          "show_all_entities": "Propose les entités de contrôle de toute l'instance, pas seulement celles de l'appareil auquel les capteurs sont rattachés. Cochez puis validez pour recharger la liste.",
           "notes": "Notes libres à propos de ce compteur fictif. Purement informatives, elles ne changent aucune mesure."
         }
       }
