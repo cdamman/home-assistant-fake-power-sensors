@@ -59,6 +59,18 @@ def _new_device_entry(**options) -> MockConfigEntry:
     )
 
 
+def _own_devices(hass: HomeAssistant, entry: MockConfigEntry) -> list[dr.DeviceEntry]:
+    """Return the devices a config entry created.
+
+    Deliberately not `async_get_device(identifiers=...)`: recent Home Assistant
+    refuses that call outright, identifiers no longer being unique across
+    config entries, and the replacements it points at do not exist on the
+    oldest release supported here. Going through the config entry works on both
+    ends of the range, and says what these tests mean anyway.
+    """
+    return dr.async_entries_for_config_entry(dr.async_get(hass), entry.entry_id)
+
+
 async def test_new_device_creates_device_and_entities(hass: HomeAssistant) -> None:
     """A fake device carries both sensors."""
     entry = _new_device_entry()
@@ -67,10 +79,10 @@ async def test_new_device_creates_device_and_entities(hass: HomeAssistant) -> No
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
 
-    device = dr.async_get(hass).async_get_device(
-        identifiers={(DOMAIN, entry.entry_id)}
-    )
-    assert device is not None
+    devices = _own_devices(hass, entry)
+    assert len(devices) == 1
+    device = devices[0]
+    assert device.identifiers == {(DOMAIN, entry.entry_id)}
     assert device.name == "Box internet"
     # This mode does create the device, so the entry owns it.
     assert device.config_entries == {entry.entry_id}
@@ -796,18 +808,14 @@ async def test_own_device_removal_removes_the_entry(hass: HomeAssistant) -> None
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
 
-    device_registry = dr.async_get(hass)
-    device = device_registry.async_get_device(identifiers={(DOMAIN, entry.entry_id)})
+    (device,) = _own_devices(hass, entry)
 
     assert await async_remove_config_entry_device(hass, entry, device)
     await hass.async_block_till_done()
 
     assert entry.entry_id not in hass.config_entries.async_entry_ids()
     assert er.async_entries_for_config_entry(er.async_get(hass), entry.entry_id) == []
-    assert (
-        device_registry.async_get_device(identifiers={(DOMAIN, entry.entry_id)})
-        is None
-    )
+    assert _own_devices(hass, entry) == []
     assert hass.states.get(POWER_ENTITY) is None
 
 
@@ -879,7 +887,7 @@ async def test_statistics_are_deleted_with_the_entry(
         ENERGY_ENTITY,
     }
 
-    device = dr.async_get(hass).async_get_device(identifiers={(DOMAIN, entry.entry_id)})
+    (device,) = _own_devices(hass, entry)
     assert await async_remove_config_entry_device(hass, entry, device)
     await hass.async_block_till_done()
     await async_wait_recording_done(hass)
