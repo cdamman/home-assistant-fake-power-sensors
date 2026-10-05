@@ -62,11 +62,18 @@ def _new_device_entry(**options) -> MockConfigEntry:
 def _own_devices(hass: HomeAssistant, entry: MockConfigEntry) -> list[dr.DeviceEntry]:
     """Return the devices a config entry created.
 
-    Deliberately not `async_get_device(identifiers=...)`: recent Home Assistant
-    refuses that call outright, identifiers no longer being unique across
-    config entries, and the replacements it points at do not exist on the
-    oldest release supported here. Going through the config entry works on both
-    ends of the range, and says what these tests mean anyway.
+    The device registry is the moving part of this test suite: Home Assistant
+    is unpicking the old assumption that a device could be shared, and turns
+    each step of that into a hard error. `async_get_device(identifiers=...)`
+    went first, `DeviceEntry.config_entries` next, and the replacements each
+    deprecation points at do not exist on the oldest release supported here,
+    so following them would only move the failure to the other end of the
+    matrix.
+
+    Asking the config entry which devices are its own sidesteps the lot. It
+    works on both ends, carries no deprecation of its own, and says what these
+    tests actually mean -- including the negative case: an entry that claimed
+    no device owns none.
     """
     return dr.async_entries_for_config_entry(dr.async_get(hass), entry.entry_id)
 
@@ -79,13 +86,13 @@ async def test_new_device_creates_device_and_entities(hass: HomeAssistant) -> No
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
 
+    # Looking the device up by config entry is itself the ownership assertion:
+    # this mode does create the device, so the entry owns it.
     devices = _own_devices(hass, entry)
     assert len(devices) == 1
     device = devices[0]
     assert device.identifiers == {(DOMAIN, entry.entry_id)}
     assert device.name == "Box internet"
-    # This mode does create the device, so the entry owns it.
-    assert device.config_entries == {entry.entry_id}
 
     entities = er.async_entries_for_config_entry(
         er.async_get(hass), entry.entry_id
@@ -664,10 +671,10 @@ async def test_existing_device_mode_attaches_entities(hass: HomeAssistant) -> No
 
     # The sensors ride on the host device without our entry claiming it:
     # claiming it would end the config flow on the "name and assign" screen,
-    # offering to rename a device owned by another integration.
-    host_device = device_registry.async_get(host_device.id)
-    assert entry.entry_id not in host_device.config_entries
-    assert host_device.config_entries == {host_entry.entry_id}
+    # offering to rename a device owned by another integration. So our entry
+    # owns no device at all, and the host device still belongs to its own.
+    assert _own_devices(hass, entry) == []
+    assert [device.id for device in _own_devices(hass, host_entry)] == [host_device.id]
 
     assert hass.states.get("sensor.frigo_current_consumption").state == "80.0"
 
